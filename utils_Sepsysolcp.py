@@ -26,7 +26,7 @@ import time
 import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
+# from tensorflow.keras.optimizers import Adam
 import calendar
 import matplotlib.transforms as transforms
 import importlib

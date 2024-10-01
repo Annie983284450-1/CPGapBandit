@@ -54,7 +54,7 @@ from gap_b import gap_bandit
 # be cautious
 # stderr = sys.stderr
 # sys.stderr = open('logfile.log','w')
-import tensorflow as tf
+# import tensorflow as tf
 # sys.stderr = stderr
 # tf.get_logger().setLevel('ERROR')
 warnings.filterwarnings("ignore")
@@ -90,7 +90,7 @@ class CPBandit:
         self.hat_mu_list = np.zeros(self.k)   
         self.N = [0]*self.k  # N_i(t) (i=1,2,3,...k), cumulated # times arm i got pulled
         self.t = 0 # round t, each round is correlated to one test patient
-        self.rewards = list()    #[0]*self.T
+        # self.rewards = list()    #[0]*self.T
         self.mu_best =1
  
 
@@ -172,12 +172,14 @@ class CPBandit:
 
         original_stdout = sys.stdout
 
-        with open(f_dat_path+'/log.out', 'w') as f:
+        with open(f_dat_path+'/log.txt', 'w') as f:
             sys.stdout = f  # Redirect stdout to the file
 
             # Your main code goes here
             # print("This will be written to the output_log.out file.")
             print(f'=================~~~~~~~~~~~        expert list: {self.experts}. =================~~~~~~~~~~~ ')
+            print(f'len(self.experts) == {len(self.experts)}')
+            # sys.exit()
 
 
 
@@ -365,6 +367,7 @@ class CPBandit:
                                     Y_upper = PIs_df['upper']
                                     Y_lower = PIs_df['lower']
                                     k_idx = expert_dict[f'{expert}']
+                                    print(f'k_idx == {k_idx}')
                                
                                     
                                     
