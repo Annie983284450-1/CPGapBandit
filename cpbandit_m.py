@@ -501,9 +501,13 @@ class CPBandit:
 
 def main():
   
-    experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
-                     ['ridge','rf','lasso','dct','lr'],
-                     ['ridge','rf','dct','lr'],
+    # experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
+    #                  ['ridge','rf','lasso','dct','lr'],
+    #                  ['ridge','rf','dct','lr'],
+    #                  ['ridge','rf','lr'],
+    #                  ['ridge', 'rf'],
+    #                  ['ridge']]  
+    experts_lists = [['ridge','rf','dct','lr'],
                      ['ridge','rf','lr'],
                      ['ridge', 'rf'],
                      ['ridge']]  

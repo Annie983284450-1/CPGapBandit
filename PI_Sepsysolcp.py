@@ -185,7 +185,7 @@ class prediction_interval():
     def aggregation_bkeep_parallel(self, n, n1, in_boot_sample, boot_predictions):
         num_processors = multiprocessing.cpu_count()
         # leave at least 4 processors for other tasks
-        num_processors_2_use =  max(1, num_processors - 8)
+        num_processors_2_use =  max(1, num_processors)
         # num_processors_2_use =  1
         pool = multiprocessing.Pool(processes=num_processors_2_use)
         results = pool.starmap(self.aggregation_bkeep, [(n, n1, i, in_boot_sample, boot_predictions) for i in range(n)])
