@@ -143,7 +143,7 @@ class CPBandit:
         # usually B=30 can make sure every sample have LOO residual
         B = 25
         K = len(self.experts)
-        alpha=0.1
+    
         alpha_ls = np.linspace(0.05,0.25,5)
         min_alpha = 0.0001
         max_alpha = 10
@@ -373,7 +373,8 @@ class CPBandit:
                                         # Calculate the absolute error
                                         errors_upper = (curr_pat_predictions['SepsisLabel'] - PIs_df['upper']).abs()
                                         errors_lower = (curr_pat_predictions['SepsisLabel'] - PIs_df['lower']).abs()
-                                        errors =1 - (curr_pat_predictions['SepsisLabel'] - curr_pat_predictions[f'{expert}_predictions']).abs()
+                                        # errors = 1-(curr_pat_predictions['SepsisLabel'] - curr_pat_predictions[f'{expert}_predictions']).abs() wrong!!!
+                                        errors = (curr_pat_predictions['SepsisLabel'] - curr_pat_predictions[f'{expert}_predictions']).abs()
 
                                         # Calculate the mean error
                                         mean_error_upper = errors_upper.mean()
@@ -509,16 +510,13 @@ class CPBandit:
 
 def main():
   
-    # experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
-    #                  ['ridge','rf','lasso','dct','lr'],
-    #                  ['ridge','rf','dct','lr'],
+    experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
+                     ['ridge','rf','xgb','dct','lr']
+                ]  
+    # experts_lists = [['ridge','rf','dct','lr'],
     #                  ['ridge','rf','lr'],
     #                  ['ridge', 'rf'],
     #                  ['ridge']]  
-    experts_lists = [['ridge','rf','dct','lr'],
-                     ['ridge','rf','lr'],
-                     ['ridge', 'rf'],
-                     ['ridge']]  
     for experts_list in experts_lists:
         
         cpbanit_player = CPBandit(experts=experts_list)
