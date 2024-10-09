@@ -35,7 +35,7 @@ class prediction_interval():
     '''
  
 
-    def __init__(self, fit_func, X_train, X_predict, Y_train, Y_predict, final_result_path):
+    def __init__(self, fit_func, X_train, X_predict, Y_train, Y_predict, final_result_path, experts_list, train_size ):
         
         self.regressor = fit_func
         self.X_train = X_train
@@ -53,6 +53,9 @@ class prediction_interval():
         self.WeightCP_online_resid = np.array([])
         self.JaB_boot_samples_idx = 0
         self.JaB_boot_predictions = 0
+        self.experts_list = experts_list
+        self.train_size = train_size
+      
  
 # without GPU parallel computing and without CPU parallel computing
     def fit_bootstrap_sequential_online_single(self, Isrefit, B, n, n1, boot_samples_idx, saved_model_path, max_hours):
@@ -109,7 +112,9 @@ class prediction_interval():
      
     def fit_bootstrap_models_online_single(self, args):
         b, boot_samples_idx_b, model_name, n, n1, Isrefit, saved_model_path, max_hours = args  
-        saved_model_path = self.final_result_path+'/saved_models/'+ model_name
+        # saved_model_path = self.final_result_path+'/saved_models/'+'_'.join(self.experts_list)+ '/'+model_name
+        # train_size = len(self.X_train)
+        # saved_model_path = self.final_result_path+'/'+'_'.join(self.experts_list)+ f'/saved_models_trainsize{train_size}/'+model_name
         # print(f'        !!!!!Refitting {model_name}!!!!!')
         model = self.regressor
         boot_predictions_b = np.zeros((1, (n+n1)), dtype=float)
@@ -182,11 +187,9 @@ class prediction_interval():
     
 
     def aggregation_bkeep_parallel(self, n, n1, in_boot_sample, boot_predictions):
-        num_processors = multiprocessing.cpu_count()
-        # leave at least 4 processors for other tasks
-        num_processors_2_use =  max(1, num_processors - 8)
-        # num_processors_2_use =  1
-        pool = multiprocessing.Pool(processes=num_processors_2_use)
+     
+        
+        pool = multiprocessing.Pool(processes=max(1, multiprocessing.cpu_count()))
         results = pool.starmap(self.aggregation_bkeep, [(n, n1, i, in_boot_sample, boot_predictions) for i in range(n)])
         pool.close()
         pool.join()
@@ -206,7 +209,12 @@ class prediction_interval():
     def fit_bootstrap_models_online_multi(self, B, miss_test_idx, Isrefit, model_name, max_hours):
         n = len(self.X_train)  
         n1 = len(self.X_predict)  
-        saved_model_path = self.final_result_path + '/saved_models/'+ model_name 
+        # saved_model_path = self.final_result_path + '/saved_models/'+ model_name 
+        # saved_model_path = self.final_result_path+'/'+'_'.join(self.experts_list)+ '/saved_models/'+model_name
+       
+        saved_model_path = self.final_result_path+'/'+'_'.join(self.experts_list)+ f'/saved_models_trainsize{self.train_size}/'+model_name
+
+
 
         if not os.path.exists(saved_model_path):
             os.makedirs(saved_model_path)
@@ -233,9 +241,8 @@ class prediction_interval():
             boot_predictions = np.load(saved_model_path+'/boot_predictions.npy' )
             in_boot_sample = np.load(saved_model_path+'/in_boot_sample.npy')
         else: # multiprocessing mode, only for non-sequential models
-            num_processors = multiprocessing.cpu_count()
-            num_processors_2_use = 4
-            pool = multiprocessing.Pool(processes = num_processors_2_use)
+        
+            pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()))
             # b, boot_samples_idx_b, model_name, n, n1, Isrefit, saved_model_path, max_hours = args
             args_list = [(b, boot_samples_idx[b], model_name, n, n1, Isrefit, saved_model_path, max_hours) for b in range(B)]
             results = pool.map(self.fit_bootstrap_models_online_single, args_list)
@@ -247,7 +254,7 @@ class prediction_interval():
                 b = result['b']
                 boot_predictions[b] = result['boot_predictions']
                 in_boot_sample[b] = result['in_boot_sample']
-        print(f'        ///Finish Fitting {B} Bootstrap for {model_name}, took {time.time()-start} secs.///')
+        print(f'        ///Finish predicting {B} Bootstraps [{model_name}], took {time.time()-start} secs.///')
 
         start = time.time()
         keep = []

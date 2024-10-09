@@ -55,6 +55,7 @@ class get_params_prob():
         train_set_psv = np.concatenate((train_sepsis, train_nosepsis), axis=0)
 
         train_set  = [filename.replace('.psv', '') for filename in train_set_psv]
+        original_train_size_pat = len(train_set)
 
         # print('train_set[0:5]:')
         # print(train_set[0:5])
@@ -65,6 +66,7 @@ class get_params_prob():
         final_result_path = '../cpbandit_results_prob/' +   f'test{num_test_pat}_train_{num_train_sepsis_pat*2}'  +f'_max_u_tp={self.max_u_tp}_min_u_fn={self.min_u_fn}_u_fp={self.u_fp}_u_tn={self.u_tn}/'
         if not os.path.exists(final_result_path):
             os.makedirs(final_result_path)
+        print(f'final_result_path: {final_result_path}')
         if start_test !=0:
             sys.exit('!!!!!!!!! start_test should be 0')
             # X_train = np.load(final_result_path +'./X_train_merged.npy', X_train_merged)
@@ -88,4 +90,4 @@ class get_params_prob():
         print(f'X_train shape: {X_train.shape}')
         # print(f'Y_train shape: {Y_train.shape}')
 
-        return X_train, Y_train, test_set, final_result_path, sepsis_full
+        return X_train, Y_train, test_set, final_result_path, sepsis_full, original_train_size_pat

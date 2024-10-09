@@ -6,8 +6,14 @@ import sys
 import PI_Sepsysolcp_prob as EnbPI
 import matplotlib
 from sklearn.linear_model import ElasticNet
-from sklearn.tree import DecisionTreeRegressor
-from xgboost import XGBRegressor
+# from sklearn.linear_model import ElasticNetCV
+# from sklearn.tree import DecisionTreeRegressor
+# from xgboost import XGBRegressor
+from xgboost import XGBClassifier
+from catboost import CatBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from lightgbm import LGBMClassifier
+
 # matplotlib.use('TkAgg',force=True)
 # matplotlib.use('Agg')
 import os
@@ -75,7 +81,6 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.linear_model import ElasticNetCV
-from xgboost import XGBClassifier
 
 multiprocessing.get_context().Process().Pickle = dill
 # =============Read data and initialize parameters
@@ -159,7 +164,7 @@ class CPBandit:
         u_tn=0.05
         
         params = get_params_prob(self.experts, num_test_pat, num_train_sepsis_pat, start_test, start_nosepsis_train, start_sepsis_train, max_u_tp=max_u_tp,min_u_fn=min_u_fn,u_fp=u_fp,u_tn=u_tn)
-        X_train, Y_train, test_set, final_result_path, sepsis_full = params.get_train_test_set()
+        X_train, Y_train, test_set, final_result_path, sepsis_full, train_size_pat = params.get_train_test_set()
         # sys.exit('testing get_train_test_set()')
 
 
@@ -173,91 +178,83 @@ class CPBandit:
         os.makedirs(f_dat_path, exist_ok=True)
 
 
+
+        # num_processors_2_use = max(1, multiprocessing.cpu_count())
+
+
         original_stdout = sys.stdout
 
         with open(f_dat_path+'/log.out', 'w') as f:
-            sys.stdout = f  # Redirect stdout to the file
-
-            # Your main code goes here
-            # print("This will be written to the output_log.out file.")
+            sys.stdout = f  
             print(f'=================~~~~~~~~~~~        expert list: {self.experts}. =================~~~~~~~~~~~ ')
-
-
-
-
-            methods  = ['Ensemble'] # conformal prediction methods
-            
+            methods  = ['Ensemble'] 
             start_time = time.time()
-    
             num_pat_tested = 0
             num_fitting = 0
             refit_step = 100
             X_size = {}
-            
             expert_idx = list(range(K))
             expert_dict = dict(zip(self.experts, expert_idx))
-        
-    
-            
-
             max_hours = 480  
             predictions_namelist = [x+'_predictions' for x in self.experts]
             predictions_col = ['pat_id','itrial', 'SepsisLabel']
             predictions_col.extend(predictions_namelist)
     
-            # if 'lasso' in self.experts:
-            #     lasso_f = LassoCV(alphas=np.linspace(min_alpha, max_alpha, 10))
-
-            # if 'ridge' in self.experts:
-            #     ridge_f = RidgeCV(alphas=np.linspace(min_alpha, max_alpha, 10))
-            # if 'rf' in self.experts:
-            #     rf_f = RandomForestRegressor(n_estimators=10, criterion='mse',
-            #                                 bootstrap=False, max_depth=2, n_jobs=-1)
-            # if 'svr' in self.experts:
-            #     # param_distributions = {
-            #     #     'C': [0.1, 1, 10, 100],
-            #     #     'gamma': ['scale', 'auto'],
-            #     #     'kernel': ['linear', 'rbf', 'poly']
-            #     # }
-            #     svr_f = SVR()
-            #     # random_search_svr = RandomizedSearchCV(svr, param_distributions, n_iter=10, cv=3, verbose=2, random_state=42, n_jobs=-1)
-            # if 'xgb' in self.experts:
-            #     xgb_hyperparams = {'subsample': 0.8, 'n_estimators': 50, 'max_depth': 3, 'learning_rate': 0.1}
-            #     xgb_f = XGBRegressor(subsample=xgb_hyperparams['subsample'],
-            #                                         n_estimators=xgb_hyperparams['n_estimators'],
-            #                                         max_depth=xgb_hyperparams['max_depth'],
-            #                                         learning_rate=xgb_hyperparams['learning_rate'])
-            # if 'enet' in self.experts:
-            #     enet_f = ElasticNet(random_state=0)
-            # if 'dct' in self.experts:
-            #     dct_f = DecisionTreeRegressor(random_state=0)
-
             if 'lasso' in self.experts:
                 lasso_f = LogisticRegressionCV(Cs=np.linspace(min_alpha, max_alpha, 10), penalty='l1', solver='liblinear')
 
             if 'ridge' in self.experts:
                 ridge_f = LogisticRegressionCV(Cs=np.linspace(min_alpha, max_alpha, 10), penalty='l2')
-
+            # Supports predict_proba: Yes, Random Forest is a classification algorithm, and it supports the predict_proba method for estimating class probabilities.
             if 'rf' in self.experts:
                 rf_f = RandomForestClassifier(n_estimators=10, criterion='gini',
                                             bootstrap=False, max_depth=2, n_jobs=-1)
+                
 
+            # Supports predict_proba: Yes, but only if you set probability=True, 
             if 'svr' in self.experts:
                 svr_f = SVC(probability=True)  # Use SVC for classification with probability estimates
 
+            
+            # Supports predict_proba: No. 
+            # Since it's a regression model, it does not support predict_proba. 
+            # If you need probability estimates, you should use XGBClassifier instead.            
+            #     xgb_f = XGBRegressor(
+            #     objective='reg:squarederror',  # Default for regression
+            #     n_estimators=100,              # Number of trees
+            #     learning_rate=0.1,             # Step size shrinkage
+            #     max_depth=3,                   # Maximum depth of a tree
+            #     subsample=1,                   # Subsample ratio of the training instances
+            #     colsample_bytree=1             # Subsample ratio of columns when constructing each tree
+            # )
+                
             if 'xgb' in self.experts:
-                xgb_hyperparams = {'subsample': 0.8, 'n_estimators': 50, 'max_depth': 3, 'learning_rate': 0.1}
-                xgb_f = XGBClassifier(subsample=xgb_hyperparams['subsample'],
-                                    n_estimators=xgb_hyperparams['n_estimators'],
-                                    max_depth=xgb_hyperparams['max_depth'],
-                                    learning_rate=xgb_hyperparams['learning_rate'])
+                xgb_f = XGBClassifier(
+                    objective='binary:logistic',  # Use 'binary:logistic' for binary classification
+                    n_estimators=100,             # Number of trees (boosting rounds)
+                    learning_rate=0.1,            # Step size shrinkage
+                    max_depth=3,                  # Maximum depth of a tree
+                    subsample=1,                  # Subsample ratio of the training instances
+                    colsample_bytree=1            # Subsample ratio of columns when constructing each tree
+                )
 
+
+            # Supports predict_proba: Yes, since Logistic Regression is a classification model, it can provide probability estimates for each class.
             if 'lr' in self.experts:
                 lr_f = LogisticRegressionCV(Cs=np.linspace(min_alpha, max_alpha, 10), penalty='elasticnet', solver='saga', l1_ratios=[0.5])
-
+            # Supports predict_proba: Yes, DecisionTreeClassifier supports predict_proba for estimating class probabilities.
             if 'dct' in self.experts:
                 dct_f = DecisionTreeClassifier(random_state=0)
 
+            # Supports predict_proba: No. This is a regression model for linear regression, so it does not provide class probabilities. It uses continuous outputs instead.
+            # if 'enet' in self.experts:
+            #     enet_f = ElasticNetCV(alpha=1.0, l1_ratio=0.5)
+            if 'lgb' in self.experts:
+                lgb_f = LGBMClassifier(n_estimators=100, learning_rate=0.1, max_depth=-1)
+            if 'cat' in self.experts:
+                cat_f = CatBoostClassifier(iterations=100, learning_rate=0.1, depth=3, verbose=0)
+
+      
 
             for patient_id in test_set:
                 start_curr_pat_time =  time.time()
@@ -296,9 +293,13 @@ class CPBandit:
                 print(f'=======         Processing patient {num_pat_tested}th patient: {patient_id}====================')
 
                 # curr_pat_histories['hours2sepsis'] = Y_predict
-                        
+
+
+                # update the training dataset when the number of tested patients is a multiple of refit_step
+                # this must be done before the model fitting 
                 if num_pat_tested % refit_step==0:
                     Isrefit = True
+                    
                     if num_pat_tested!=0:
                         X_size['Old_X_Size'] = X_train.shape[0]
                         X_train = X_train_merged
@@ -310,7 +311,9 @@ class CPBandit:
                         Isrefit = False
 
                 else:
-                    Isrefit = False            
+                    Isrefit = False    
+
+                # train_size = X_train.shape[0]        
 
                 for itrial in range(tot_trial):
                     curr_pat_predictions = pd.DataFrame(columns=predictions_col)
@@ -319,7 +322,8 @@ class CPBandit:
                     for expert in self.experts:
 
                         print(f' ========= &&&&&& Starting fitting the model and make predictions for {expert}.... ========= &&&&&&')
-                        cp_EnbPI = EnbPI.prediction_interval(locals()[f'{expert}_f'], X_train, X_predict, Y_train, Y_predict,final_result_path)
+                        cp_EnbPI = EnbPI.prediction_interval(locals()[f'{expert}_f'], X_train, X_predict, Y_train, Y_predict, final_result_path, \
+                                                             self.experts, train_size_pat )
                         cp_EnbPI.fit_bootstrap_models_online_multi(B, miss_test_idx, Isrefit, model_name = expert, max_hours=max_hours)
                         # cp_EnbPI.fit_bootstrap_models_online(B, miss_test_idx, Isrefit, model_name = expert, max_hours = max_hours)
                      
@@ -332,15 +336,9 @@ class CPBandit:
 
                     curr_pat_predictions['itrial'] = itrial
                     curr_pat_predictions['pat_id'] = patient_id
-                    # curr_pat_predictions['hours2sepsis'] = Y_predict
+                  
                     curr_pat_predictions['SepsisLabel'] = curr_pat_SepsisLabel
 
-                    # print(f'curr_pat_predictions: {curr_pat_predictions.head()}')
-                    # sys.exit('testing curr_pat_predictions')
-
-
-                    # final_result_path = './Results('test{num_test_pat},train_sepsis{num_train_sepsis_pat}self.experts))'
-                    # f_dat_path final_result_path+'/dat'
                     histories_dat_path = f_dat_path + '/all_histories/' + 'itrial#'+str(itrial) 
                     if not os.path.exists(histories_dat_path):
                         os.makedirs(histories_dat_path)
@@ -437,7 +435,10 @@ class CPBandit:
     
 
                 if Isrefit:
-                    num_fitting = num_fitting+1            
+                    if num_fitting !=0:
+                        train_size_pat = train_size_pat + refit_step
+                    num_fitting = num_fitting+1     
+                           
                 # updating dataset
                 
                 print(f'\n')
@@ -465,10 +466,9 @@ class CPBandit:
                 print(f'# {num_pat_tested} patients already tested! ......')
 
             
-            np.save(final_result_path+'/X_train_merged.npy', X_train_merged)
-            np.save(final_result_path+'/Y_train_merged.npy', Y_train_merged)
+            np.save(final_result_path+'/'+'_'.join(self.experts)+f'/X_train_merged.npy', X_train_merged)
+            np.save(final_result_path+'/'+'_'.join(self.experts)+f'/Y_train_merged.npy', Y_train_merged)
 
-            # final_all_results_avg.to_csv(final_result_path+'/final_all_results_avg.csv')
             print('========================================================')
             print('========================================================')
             print(f'Test size: {len(test_set)}')
@@ -476,7 +476,7 @@ class CPBandit:
         
             print(f'Total excution time: {(time.time() - start_time)} seconds~~~~~~' )
             machine = 'ece-kl2313-01.ece.gatech.edu'
-            with open(final_result_path+'/execution_info.txt', 'w') as file:
+            with open(final_result_path+'/'+'_'.join(self.experts)+'/execution_info.txt', 'w') as file:
                 file.write(f'Total excution time: {(time.time() - start_time)} seconds\n')
                 file.write(f'num_test_pat = {num_test_pat}\n')
                 file.write(f'num_train_sepsis_pat = {num_train_sepsis_pat}\n')
@@ -490,7 +490,7 @@ class CPBandit:
                 file.write(f'Experts = {list(expert_dict.keys())}\n')
                 file.write(f'The models have been fitted for {num_fitting} times.\n')
                 file.write(f'Machine: {machine}\n')
-                file.write(f'Multiprocessor: True\n')  
+                file.write(f'Multiprocessing: True \n')
                 file.write(f'dt_early=-12\n')
                 file.write(f'dt_optimal=-6\n')
                 file.write(f'dt_late=3.0\n')
@@ -510,14 +510,18 @@ class CPBandit:
 
 def main():
   
-    experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
-                     ['ridge','rf','xgb','dct','lr']
-                ]  
+    # experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
+    #                  ['ridge','rf','xgb','dct','lr']]  
     # experts_lists = [['ridge','rf','dct','lr'],
     #                  ['ridge','rf','lr'],
     #                  ['ridge', 'rf'],
     #                  ['ridge']]  
+    # experts_lists = [['ridge','rf','dct','lr', 'svr']]
+    experts_lists = [['ridge','rf','dct','lr', 'svr', 'lgb']]
+    # experts_lists = [['ridge','rf','dct','lr', 'svr', 'xgb']]
+
     for experts_list in experts_lists:
+        # print(experts_list)
         
         cpbanit_player = CPBandit(experts=experts_list)
         cpbanit_player._start_game()
