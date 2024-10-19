@@ -14,4 +14,18 @@ nohup python cpbandit_prob.py > nohup_prob_ridge_rf_dct_lr_svr_xgb300_1000.log 2
 jobID:1542365
 nohup python cpbandit_prob.py > nohup_prob_ridge_rf_dct_lr_svr_lgb300_1000.log 2>&1 &
 
- 
+## wrong. cannot load the previous model properly, since the previous models is not dumped properly in the right folder
+
+## testing the new code for properly loading the previous model
+nohup python cpbandit_prob.py > nohup_prob_ridge_rf_dct_lr_svr_lgb10_20_refitstep_10.log 2>&1 &
+nohup python cpbandit_prob.py > nohup_prob_lasso_combo_300_1000_refitstep_100.log 2>&1 &
+nohup python cpbandit_prob.py > nohup_prob_1lgb_2xgb_3cat_combo_300_1000_refitstep_100.log 2>&1 &
+nohup python cpbandit_prob.py --num > nohup_prob_testSeptic2_trainSeptic5_refitstep_1.log 2>&1 &
+
+# parser.add_argument('--num_test_sepsis_pat', type=int, default=2)
+# parser.add_argument('--num_train_sepsis_pat', type=int, default=5)
+# parser.add_argument('--refit_step', type=int, default=1)
+# parser.add_argument('--B', type=int, default=25)
+nohup python cpbandit_prob.py --num_test_sepsis_pat 100 --num_train_sepsis_pat 2000 > nohup_prob_testSeptic100_trainSeptic2000_NoRefit_lassocombo.log 2>&1 &
+
+nohup python cpbandit_prob.py --num_test_sepsis_pat 50 --num_train_sepsis_pat 1000 > nohup_prob_testSeptic50_trainSeptic1000_NoRefit_nnetcombo.log 2>&1 &

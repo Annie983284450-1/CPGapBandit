@@ -1,4 +1,5 @@
 import time
+import argparse
 from scipy.stats import skew
 import seaborn as sns
 import math
@@ -85,7 +86,7 @@ from sklearn.linear_model import ElasticNetCV
 multiprocessing.get_context().Process().Pickle = dill
 # =============Read data and initialize parameters
 class CPBandit:
-    def __init__(self, experts):
+    def __init__(self, experts, num_test_sepsis_pat_args, num_train_sepsis_pat_args, refit_step_args, B_args):
         self.experts = experts
         self.k = len(experts)
         self.UCB = [0]*self.k
@@ -100,26 +101,13 @@ class CPBandit:
         self.t = 0 # round t, each round is correlated to one test patient
         # self.rewards = list()    #[0]*self.T
         self.mu_best =1
- 
+        self.num_test_sepsis_pat = num_test_sepsis_pat_args
+        self.num_train_sepsis_pat = num_train_sepsis_pat_args
+        self.refit_step = refit_step_args
+        self.B = B_args
 
     def upperBound2(self, N_it, alpha):
         return  math.sqrt(alpha * math.log(self.t+1) / N_it)
-
-    # def get_average_regret(self,t):
-
-    #     regret = ((t+1)*self.mu_best - np.sum(self.rewards))/float(t+1)
-    #     if self.mu_best<self.rewards[-1]:
-    #         print("the reward of round ", t , " exceeds 4, which is ", self.rewards[-1], "!!!!!!")
-    #     return regret
-
-    # def get_cu_regret(self):
-
-    #     regret = (self.t+1)*self.mu_best - np.sum(self.rewards)
-    #     if self.mu_best<self.rewards[-1]:
-    #         print("the reward of round ", t , " exceeds 4, which is ", self.rewards[-1], "!!!!!!")
-    #     return regret
-
-
     def _start_game(self):
         '''
         num_test_pat = 10  
@@ -132,9 +120,16 @@ class CPBandit:
         Total excution time --- 2472.87833571434 seconds ---
         the time complexity is too high. So we need to do the refitting less frequently
         '''
-        num_test_pat = 300
-        num_train_sepsis_pat = 500
+
+        num_test_sepsis_pat = self.num_test_sepsis_pat
+        num_train_sepsis_pat = self.num_train_sepsis_pat
+        refit_step = self.refit_step
+
+        # num_test_sepsis_pat = 100
+        # num_train_sepsis_pat = 1500
+        # refit_step = 100000 # just do not refit to save time
         num_train_nosepsis_pat = num_train_sepsis_pat 
+        
 
         start_test = 0
         start_nosepsis_train = 0
@@ -146,7 +141,7 @@ class CPBandit:
         miss_test_idx=[]
         tot_trial = 1
         # usually B=30 can make sure every sample have LOO residual
-        B = 25
+        B = self.B
         K = len(self.experts)
     
         alpha_ls = np.linspace(0.05,0.25,5)
@@ -155,17 +150,19 @@ class CPBandit:
         bandit_alpha = 2       
 
 
-        dt_early=-12
-        dt_optimal=-6
-        dt_late=3.0
+        # dt_early=-12
+        # dt_optimal=-6
+        # dt_late=3.0
         max_u_tp=2
         min_u_fn=-2
         u_fp=-0.05
         u_tn=0.05
+
         
-        params = get_params_prob(self.experts, num_test_pat, num_train_sepsis_pat, start_test, start_nosepsis_train, start_sepsis_train, max_u_tp=max_u_tp,min_u_fn=min_u_fn,u_fp=u_fp,u_tn=u_tn)
+        
+        params = get_params_prob(self.experts, num_test_sepsis_pat, num_train_sepsis_pat, start_test, start_nosepsis_train, start_sepsis_train,B)
         X_train, Y_train, test_set, final_result_path, sepsis_full, train_size_pat = params.get_train_test_set()
-        # sys.exit('testing get_train_test_set()')
+      
 
 
         f_name = ''
@@ -177,21 +174,18 @@ class CPBandit:
         f_dat_path = os.path.join(final_result_path,f_name)
         os.makedirs(f_dat_path, exist_ok=True)
 
-
-
-        # num_processors_2_use = max(1, multiprocessing.cpu_count())
-
-
+        # the original num of pats in the training dataset
+        train_folder_name = train_size_pat
         original_stdout = sys.stdout
 
-        with open(f_dat_path+'/log.out', 'w') as f:
+        with open(f_dat_path+'/'+'_'.join(self.experts)+'.log', 'w') as f:
             sys.stdout = f  
             print(f'=================~~~~~~~~~~~        expert list: {self.experts}. =================~~~~~~~~~~~ ')
             methods  = ['Ensemble'] 
             start_time = time.time()
             num_pat_tested = 0
             num_fitting = 0
-            refit_step = 100
+            
             X_size = {}
             expert_idx = list(range(K))
             expert_dict = dict(zip(self.experts, expert_idx))
@@ -209,27 +203,13 @@ class CPBandit:
             if 'rf' in self.experts:
                 rf_f = RandomForestClassifier(n_estimators=10, criterion='gini',
                                             bootstrap=False, max_depth=2, n_jobs=-1)
-                
-
             # Supports predict_proba: Yes, but only if you set probability=True, 
             if 'svr' in self.experts:
                 svr_f = SVC(probability=True)  # Use SVC for classification with probability estimates
-
-            
-            # Supports predict_proba: No. 
-            # Since it's a regression model, it does not support predict_proba. 
-            # If you need probability estimates, you should use XGBClassifier instead.            
-            #     xgb_f = XGBRegressor(
-            #     objective='reg:squarederror',  # Default for regression
-            #     n_estimators=100,              # Number of trees
-            #     learning_rate=0.1,             # Step size shrinkage
-            #     max_depth=3,                   # Maximum depth of a tree
-            #     subsample=1,                   # Subsample ratio of the training instances
-            #     colsample_bytree=1             # Subsample ratio of columns when constructing each tree
-            # )
                 
             if 'xgb' in self.experts:
                 xgb_f = XGBClassifier(
+                    tree_method='hist',           # Use 'hist' for faster tree method
                     objective='binary:logistic',  # Use 'binary:logistic' for binary classification
                     n_estimators=100,             # Number of trees (boosting rounds)
                     learning_rate=0.1,            # Step size shrinkage
@@ -237,15 +217,12 @@ class CPBandit:
                     subsample=1,                  # Subsample ratio of the training instances
                     colsample_bytree=1            # Subsample ratio of columns when constructing each tree
                 )
-
-
             # Supports predict_proba: Yes, since Logistic Regression is a classification model, it can provide probability estimates for each class.
             if 'lr' in self.experts:
                 lr_f = LogisticRegressionCV(Cs=np.linspace(min_alpha, max_alpha, 10), penalty='elasticnet', solver='saga', l1_ratios=[0.5])
             # Supports predict_proba: Yes, DecisionTreeClassifier supports predict_proba for estimating class probabilities.
             if 'dct' in self.experts:
                 dct_f = DecisionTreeClassifier(random_state=0)
-
             # Supports predict_proba: No. This is a regression model for linear regression, so it does not provide class probabilities. It uses continuous outputs instead.
             # if 'enet' in self.experts:
             #     enet_f = ElasticNetCV(alpha=1.0, l1_ratio=0.5)
@@ -253,28 +230,19 @@ class CPBandit:
                 lgb_f = LGBMClassifier(n_estimators=100, learning_rate=0.1, max_depth=-1)
             if 'cat' in self.experts:
                 cat_f = CatBoostClassifier(iterations=100, learning_rate=0.1, depth=3, verbose=0)
+            if 'nnet' in self.experts:
+                nnet_f = 'nnet_f'
 
-      
 
             for patient_id in test_set:
+                print('\n\n')
+                print(f'=======         Processing patient {num_pat_tested}th patient: {patient_id}====================')
                 start_curr_pat_time =  time.time()
-                # print('\n\n')
-                
-                # Note: If there are fewer than 48 rows with the desired value, the result will contain all rows with that value.
-                # only take the data from the first 48 hours
-                # curr_pat_df = sepsis_full[sepsis_full['pat_id']==patient_id].head(48)
                 curr_pat_df = sepsis_full[sepsis_full['pat_id']==patient_id] 
                 # Don;t forget to reset the index, pandas assign data by index. Otherwise, we will get NaN values
                 curr_pat_df = curr_pat_df.reset_index(drop=True)
-                
-                # curr_pat_SepsisLabel = curr_pat_df['SepsisLabel']
-                # curr_pat_df is not changed
-                
-                # Y_predict = curr_pat_df['hours2sepsis']
-                if curr_pat_df['hours2sepsis'].notna().any() and curr_pat_df['SepsisLabel'].notna().any():
-                    # Y_predict = curr_pat_df['hours2sepsis']
+                if curr_pat_df['SepsisLabel'].notna().any():  
                     curr_pat_SepsisLabel = curr_pat_df['SepsisLabel']
-                    # Y_predict = curr_pat_df['hours2sepsis']
                     Y_predict = curr_pat_df['SepsisLabel']
                     print(f'Hours of ICU stay: {len(Y_predict)}')
                 else:
@@ -282,29 +250,20 @@ class CPBandit:
                     continue
 
                 X_predict = curr_pat_df.drop(columns=['pat_id','hours2sepsis','SepsisLabel'])
-                # print(f'Y_predict: {Y_predict}')
-
-
-                # if pd.isnull(Y_predict).any():
-                #     print(f'Patient {patient_id} has missing sepsis labels!!!!!!! Skip this patient!')
-                #     continue
-
-
-                print(f'=======         Processing patient {num_pat_tested}th patient: {patient_id}====================')
-
-                # curr_pat_histories['hours2sepsis'] = Y_predict
-
 
                 # update the training dataset when the number of tested patients is a multiple of refit_step
                 # this must be done before the model fitting 
-                if num_pat_tested % refit_step==0:
+                if num_pat_tested % refit_step==0 and num_pat_tested>refit_step:
                     Isrefit = True
+                    if num_pat_tested !=0:
+                        # update the datasize 
+                        train_folder_name = train_size_pat
                     
                     if num_pat_tested!=0:
                         X_size['Old_X_Size'] = X_train.shape[0]
                         X_train = X_train_merged
                         Y_train = Y_train_merged
-                        X_size['New_X_Size'] = X_train.shape[0]
+                        X_size['New_X_Size'] = X_train.shape[0]        
                         print(f'Training Dataset Updated!!!!!!!!!!!!!!!!!!!!!')
                         print(X_size)
                     if start_test!=0:
@@ -312,6 +271,8 @@ class CPBandit:
 
                 else:
                     Isrefit = False    
+                    if num_pat_tested == 0:
+                        Isrefit = True
 
                 # train_size = X_train.shape[0]        
 
@@ -320,16 +281,14 @@ class CPBandit:
                     np.random.seed(99999+itrial)
                     cp_EnbPI_dict = {}
                     for expert in self.experts:
-
-                        print(f' ========= &&&&&& Starting fitting the model and make predictions for {expert}.... ========= &&&&&&')
-                        cp_EnbPI = EnbPI.prediction_interval(locals()[f'{expert}_f'], X_train, X_predict, Y_train, Y_predict, final_result_path, \
-                                                             self.experts, train_size_pat )
-                        cp_EnbPI.fit_bootstrap_models_online_multi(B, miss_test_idx, Isrefit, model_name = expert, max_hours=max_hours)
-                        # cp_EnbPI.fit_bootstrap_models_online(B, miss_test_idx, Isrefit, model_name = expert, max_hours = max_hours)
-                     
-                        
-                        
-                        print(f' ========= &&&&&& Finish fitting model and predictions got for {expert}.... ========= &&&&&&')
+                        # print('\n\n')
+                        # print(f' ========= &&&&&& Starting fitting the model and make predictions for {expert}.... ========= &&&&&&')
+                        cp_EnbPI = EnbPI.prediction_interval(locals()[f'{expert}_f'], X_train, X_predict, Y_train, Y_predict, \
+                                                             final_result_path, \
+                                                             self.experts, train_folder_name, refit_step)
+                        cp_EnbPI.fit_bootstrap_models_online_multi(B, miss_test_idx, Isrefit, model_name = expert)
+                        # print(f' ========= &&&&&& Finish fitting model and predictions got for {expert}.... ========= &&&&&&')
+                        print('\n\n')
                         curr_pat_predictions[f'{expert}_predictions'] = cp_EnbPI.Ensemble_pred_interval_centers
                         cp_EnbPI_dict[f'{expert}'] = cp_EnbPI
 
@@ -343,7 +302,7 @@ class CPBandit:
                     if not os.path.exists(histories_dat_path):
                         os.makedirs(histories_dat_path)
 
-                    # curr_pat_predictions: predictions_col =['pat_id','itrial', 'ridge_predictions', 'rf_predictions', 'nn_predictions',  'hours2sepsis']    
+                    # curr_pat_predictions: predictions_col =['pat_id','itrial', 'ridge_predictions', 'rf_predictions', 'nn_predictions']    
                     curr_pat_predictions.to_csv(f'{histories_dat_path}/predictions_{patient_id}.csv')
 
                     for alpha in alpha_ls:
@@ -356,29 +315,27 @@ class CPBandit:
                             coverage_dict = {}
                             if method == 'Ensemble':
                                 for expert in self.experts:
-                                    print(f'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~run_experiments() executing~~~~~~~~~~~~~~~~~~~~')
-                                    print(f'~~~~~~~~~~At trial # {itrial} and alpha={alpha} and method={method} and expert={expert}~~~~~~~~~~~~~~')
+                                    print(f'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~run_experiments() for [{expert}] executing~~~~~~~~~~~~~~~~~~~~')
+                                    # print(f'~~~~~~~~~~At trial # {itrial} and alpha={alpha} and method={method} and expert={expert}~~~~~~~~~~~~~~')
                                     PIs_df, results = cp_EnbPI_dict[f'{expert}'].run_experiments(alpha, stride, data_name, itrial,
                                                         true_Y_predict=[], get_plots=False, none_CP=False, methods=methods,max_hours=max_hours)
                                     print(results)
                                     coverage_dict[expert] = results.mean_coverage.values[0]
 
-                                    Y_upper = PIs_df['upper']
-                                    Y_lower = PIs_df['lower']
+                                    # Y_upper = PIs_df['upper']
+                                    # Y_lower = PIs_df['lower']
                                     k_idx = expert_dict[f'{expert}']
                                
                                     if len(curr_pat_predictions) == len(PIs_df):
                                         # Calculate the absolute error
                                         errors_upper = (curr_pat_predictions['SepsisLabel'] - PIs_df['upper']).abs()
                                         errors_lower = (curr_pat_predictions['SepsisLabel'] - PIs_df['lower']).abs()
-                                        # errors = 1-(curr_pat_predictions['SepsisLabel'] - curr_pat_predictions[f'{expert}_predictions']).abs() wrong!!!
                                         errors = (curr_pat_predictions['SepsisLabel'] - curr_pat_predictions[f'{expert}_predictions']).abs()
-
                                         # Calculate the mean error
                                         mean_error_upper = errors_upper.mean()
                                         mean_error_lower = errors_lower.mean()
                                         mean_error = errors.mean()
-                                        print(f"Mean Error: {mean_error_upper}")
+                                        # print(f"Mean Error: {mean_error_upper}")
                                     else:
                                         print("Warning: The lengths of curr_pat_predictions and PIs_df do not match.")
                                         sys.exit('Please check the data.')
@@ -389,7 +346,7 @@ class CPBandit:
 
                                     self.hat_mu_list[k_idx] = (self.rewards[k_idx] +   self.hat_mu_list[k_idx]*num_pat_tested)/(num_pat_tested+1)
                                     # self.hat_mu_list[k_idx] =  observed_utilities 
-                                    print(f'============== observed_utilities of {expert}: {self.hat_mu_list[k_idx]} ==============')
+                                    # print(f'============== observed_utilities of {expert}: {self.hat_mu_list[k_idx]} ==============')
 
                                     self.hat_mu_list_upper[k_idx] = (upper_observed_utilities +   self.hat_mu_list_upper[k_idx]*num_pat_tested)/(num_pat_tested+1)
                                     self.hat_mu_list_lower[k_idx] = (lower_observed_utilities +   self.hat_mu_list_lower[k_idx]*num_pat_tested)/(num_pat_tested+1)
@@ -403,7 +360,7 @@ class CPBandit:
                                         self.LCB[k_idx]= self.hat_mu_list_lower[k_idx]+self.upperBound2(N_it = self.N[k_idx], alpha = bandit_alpha)
                                     self.t += 1
 
-                            print(f'@@@@~~~@@@@~~~@@@@~~~Selecting the best expert on average @@@@~~~')
+                            print(f'        @@@@~~~@@@@~~~@@@@~~~Selecting the best expert on average @@@@~~~')
                             pulled_arm_idx_curr_pat = gap_bandit(self.UCB, self.LCB, self.k).pull_arm()
                             # reward_curr_pat =  self.rewards[pulled_arm_idx_curr_pat]
                             # self.rewards.append(reward_curr_pat)
@@ -428,25 +385,16 @@ class CPBandit:
                                     pass  # Just opening in 'w' mode truncates the file
                             # Append to CSV file
                             with open(f_dat_path+f'/final_all_results_avg'+f'/final_all_results_avg(alpha={alpha}).csv', 'a') as f:
-                                new_row_all_avg.to_csv(f, header=f.tell()==0, index=False)    
-    
+                                new_row_all_avg.to_csv(f, header=f.tell()==0, index=False)     
 
 
-    
 
-                if Isrefit:
-                    if num_fitting !=0:
-                        train_size_pat = train_size_pat + refit_step
-                    num_fitting = num_fitting+1     
-                           
                 # updating dataset
-                
                 print(f'\n')
                 print(f'-------------------------------------------')
                 print(f'Updating the training dataset ..........')
                 X_train_new_df = curr_pat_df.drop(columns = ['pat_id','hours2sepsis', 'SepsisLabel'])
-                # train_set_df_x.append(X_train_new_df, ignore_index = True)
-                Y_train_new_df = curr_pat_df['hours2sepsis']
+                Y_train_new_df = curr_pat_df['SepsisLabel'] 
                 X_train_new = X_train_new_df.to_numpy(dtype='float', na_value=np.nan)
                 Y_train_new = Y_train_new_df.to_numpy(dtype='float', na_value=np.nan)
                 if num_pat_tested ==0:
@@ -456,7 +404,12 @@ class CPBandit:
                     X_train_merged = np.append(X_train_merged,X_train_new,axis=0)
                     Y_train_merged = np.append(Y_train_merged,Y_train_new,axis=0)
 
-                # dataset updated
+                train_size_pat = train_size_pat+1
+                if Isrefit:
+                    np.save(final_result_path+'/'+'_'.join(self.experts)+f'/X_train_{len(X_train_merged)}.npy', X_train_merged)
+                    np.save(final_result_path+'/'+'_'.join(self.experts)+f'/Y_train_{len(X_train_merged)}.npy', Y_train_merged)
+                    num_fitting = num_fitting+1 
+
                 print(f'~~~~~~Excution time for # {patient_id}: {time.time()-start_curr_pat_time} seconds~~~~~~')
                 print('\n\n')
                 print('========================================================')
@@ -464,10 +417,6 @@ class CPBandit:
                 num_pat_tested = num_pat_tested + 1
                 self.t += 1
                 print(f'# {num_pat_tested} patients already tested! ......')
-
-            
-            np.save(final_result_path+'/'+'_'.join(self.experts)+f'/X_train_merged.npy', X_train_merged)
-            np.save(final_result_path+'/'+'_'.join(self.experts)+f'/Y_train_merged.npy', Y_train_merged)
 
             print('========================================================')
             print('========================================================')
@@ -478,12 +427,9 @@ class CPBandit:
             machine = 'ece-kl2313-01.ece.gatech.edu'
             with open(final_result_path+'/'+'_'.join(self.experts)+'/execution_info.txt', 'w') as file:
                 file.write(f'Total excution time: {(time.time() - start_time)} seconds\n')
-                file.write(f'num_test_pat = {num_test_pat}\n')
+                file.write(f'num_test_sepsis_pat = {num_test_sepsis_pat}\n')
                 file.write(f'num_train_sepsis_pat = {num_train_sepsis_pat}\n')
                 file.write(f'num_train_nosepsis_pat = {num_train_nosepsis_pat}\n')
-                # file.write(f'start_test = {start_test}\n')
-                # file.write(f'start_nosepsis_train = {start_nosepsis_train}\n')
-                # file.write(f'start_sepsis_train = {start_sepsis_train}\n')
                 file.write(f'tot_trial = {tot_trial}\n')
                 file.write(f'refit_step = {refit_step}\n') 
                 file.write(f'No of experts = {self.k}\n')
@@ -491,14 +437,7 @@ class CPBandit:
                 file.write(f'The models have been fitted for {num_fitting} times.\n')
                 file.write(f'Machine: {machine}\n')
                 file.write(f'Multiprocessing: True \n')
-                file.write(f'dt_early=-12\n')
-                file.write(f'dt_optimal=-6\n')
-                file.write(f'dt_late=3.0\n')
-                file.write(f'max_u_tp=2\n')
-                file.write(f'min_u_fn=-2\n')
-                file.write(f'u_fp=-0.05\n')
-                file.write(f'u_tn=0.05\n')
-            print(f'The models have been fitted for {num_fitting} times.')
+            print(f'The models have been fitted for {num_fitting} time(s).')
             print('========================================================')
 
         # Restore stdout to its original value (console output)
@@ -509,21 +448,114 @@ class CPBandit:
 
 
 def main():
-  
-    # experts_lists = [['ridge','rf','lasso','xgb','dct','lr'],
-    #                  ['ridge','rf','xgb','dct','lr']]  
-    # experts_lists = [['ridge','rf','dct','lr'],
-    #                  ['ridge','rf','lr'],
-    #                  ['ridge', 'rf'],
-    #                  ['ridge']]  
-    # experts_lists = [['ridge','rf','dct','lr', 'svr']]
-    experts_lists = [['ridge','rf','dct','lr', 'svr', 'lgb']]
-    # experts_lists = [['ridge','rf','dct','lr', 'svr', 'xgb']]
+    # experts_lists = [['ridge','rf','dct','lr', 'svr', 'xgb', 'cat', 'lgb', 'lasso', 'nnet']]
+    # experts_lists = [['nnet']]
+    # experts_lists = [['rf']]
+ 
+    experts_lists = [
+                    #  ['nnet','rf','dct','lr', 'svr'],
+                    # ['nnet','rf','dct','lr'],
+                    #  ['nnet','rf','lr'],
+                    #  ['nnet', 'rf'],
+                    #  ['nnet'], 
+                    # ['lgb','rf','dct','lr', 'svr'],
+                    # ['lgb','rf','dct','lr'],
+                    #  ['lgb','rf','lr'],
+                    #  ['lgb', 'rf'],
+                    #  ['lgb'], 
+                    # ['xgb','rf','dct','lr', 'svr'],
+                    # ['xgb','rf','dct','lr'],
+                    #  ['xgb','rf','lr'],
+                    #  ['xgb', 'rf'],
+                    #  ['xgb'],
+                    # ['cat','rf','dct','lr', 'svr'],
+                    # ['cat','rf','dct','lr'],
+                    #  ['cat','rf','lr'],
+                    #  ['cat', 'rf'],
+                    #  ['cat']
+                     ['lasso','rf','dct','lr','svr'],
+                     ['lasso','rf','dct','lr'],
+                     ['lasso','rf','dct','svr'],
+                     ['lasso','rf','lr'],
+                     ['lasso','rf','dct'],
+                     ['lasso', 'rf'],
+                     ['lasso']
+                     ]  
 
-    for experts_list in experts_lists:
-        # print(experts_list)
+    parser = argparse.ArgumentParser(description='CPBandit')
+    parser.add_argument('--num_test_sepsis_pat', type=int, default=2)
+    parser.add_argument('--num_train_sepsis_pat', type=int, default=5)
+    parser.add_argument('--refit_step', type=int, default=1000000) # do not refit by default
+    parser.add_argument('--B', type=int, default=25)
+
+    # parser.add_argument('--combo', type=str, default='lasso')
+
+    args = parser.parse_args()
+    # if args.combo == 'lasso':
+    #     experts_lists =[
+    #         ['lasso','rf','dct','lr','svr'],
+    #                    ['lasso','rf','dct','lr'],
+    #                    ['lasso','rf','dct','svr'],
+    #                    ['lasso','rf','lr'],
+    #                    ['lasso','rf','dct'],
+    #                    ['lasso', 'rf'],
+    #                    ['lasso']
+    #                    ]  
         
-        cpbanit_player = CPBandit(experts=experts_list)
+    # if args.combo == 'rf':
+    #     experts_lists = [['rf','xgb','dct','lr', 'svr'],
+    #                     ['rf','xgb','dct','lr'],
+    #                     ['rf','xgb','dct','lr'],
+    #                      ['rf','xgb','lr'],
+    #                      ['xgb', 'rf'],
+    #                     ['rf']]
+        
+    experts_lists = [
+                     ['nnet','rf','lgb','lr', 'svr'],
+                     ['nnet','rf','xgb','lr', 'svr'],
+                     ['nnet','rf','dct','lr', 'svr'],
+                     ['nnet','rf','dct','lr'],
+                     ['nnet','rf','lgb','lr'],
+                     ['nnet','rf','xgb','lr'],
+                     ['nnet','rf','lr'],
+                     ['nnet','xgb','lr'],
+                     ['nnet', 'rf'],
+                     ['nnet']
+                    # ['lgb','rf','dct','lr', 'svr'],
+                    # ['lgb','rf','dct','lr'],
+                    #  ['lgb','rf','lr'],
+                    #  ['lgb', 'rf'],
+                    #  ['lgb'], 
+                    # ['xgb','rf','dct','lr', 'svr'],
+                    # ['xgb','rf','dct','lr'],
+                    #  ['xgb','rf','lr'],
+                    #  ['xgb', 'rf'],
+                    #  ['xgb'],
+                    # ['cat','rf','dct','lr', 'svr'],
+                    # ['cat','rf','dct','lr'],
+                    #  ['cat','rf','lr'],
+                    #  ['cat', 'rf'],
+                    #  ['cat']
+                    #  ['lasso','rf','dct','lr','svr'],
+                    #  ['lasso','rf','dct','lr'],
+                    #  ['lasso','rf','dct','svr'],
+                    #  ['lasso','rf','lr'],
+                    #  ['lasso','rf','dct'],
+                    #  ['lasso', 'rf'],
+                    #  ['lasso']
+                     ]  
+    for experts_list in experts_lists:
+        print('\n\n')
+        print('\n\n')
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print(f'@#$%$&^%*&^ @@@@@@@@@@@ experts_list: @#$%$&^%*&^ @@@@@@@@@@@ ')
+        print(experts_list)
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        print('\n\n')
+        cpbanit_player = CPBandit(experts=experts_list, num_test_sepsis_pat_args=args.num_test_sepsis_pat, \
+                                  num_train_sepsis_pat_args=args.num_train_sepsis_pat, refit_step_args=args.refit_step, B_args = args.B)
         cpbanit_player._start_game()
 if __name__=='__main__':
     main()

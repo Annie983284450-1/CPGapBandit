@@ -541,7 +541,9 @@ def keras_mod(seed):
     # This line adds the final output layer with a single neuron and a ReLU activation function. 
     # Since the activation function is ReLU and there is only one neuron, 
     # it suggests that this model is used for regression, where it predicts a continuous numerical output.
-    model.add(Dense(1, activation='relu'))
+    # model.add(Dense(1, activation='relu'))
+    # change the activation function to sigmoid for binary classification   
+    model.add(Dense(1, activation='sigmoid'))
     return model
 
 
@@ -563,6 +565,8 @@ def generate_bootstrap_samples(n, m, B):
     '''
     samples_idx = np.zeros((B, m), dtype=int)
     for b in range(B):
+        # sample_idx will be different each time you execute np.random.choice(n, m) 
+        # if you don't set a seed for the random number generator.
         sample_idx = np.random.choice(n, m)
         samples_idx[b, :] = sample_idx
     return(samples_idx)
