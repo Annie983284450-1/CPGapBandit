@@ -231,7 +231,7 @@ class prediction_interval():
         if self.regressor == 'nnet_f':
             boot_predictions, in_boot_sample = self.fit_bootstrap_sequential_online_single(Isrefit, B, n, n1, boot_samples_idx, saved_model_path) # this will work without GPU parallel computing
         else: # multiprocessing mode, only for non-sequential models
-            pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()))
+            pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()-4))
              
             args_list = [(b, boot_samples_idx[b], model_name, n, n1, Isrefit, saved_model_path) for b in range(B)]
             results = pool.map(self.fit_bootstrap_models_online_single, args_list)

@@ -29,3 +29,4 @@ nohup python cpbandit_prob.py --num > nohup_prob_testSeptic2_trainSeptic5_refits
 nohup python cpbandit_prob.py --num_test_sepsis_pat 100 --num_train_sepsis_pat 2000 > nohup_prob_testSeptic100_trainSeptic2000_NoRefit_lassocombo.log 2>&1 &
 
 nohup python cpbandit_prob.py --num_test_sepsis_pat 50 --num_train_sepsis_pat 1000 > nohup_prob_testSeptic50_trainSeptic1000_NoRefit_nnetcombo.log 2>&1 &
+nohup python cpbandit_prob.py --num_test_sepsis_pat 100 --num_train_sepsis_pat 2000 --combo lgb > nohup_prob_testSeptic100_trainSeptic2000_NoRefit_lgbcombo.log 2>&1 &

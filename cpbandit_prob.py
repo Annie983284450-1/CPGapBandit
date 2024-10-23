@@ -488,7 +488,7 @@ def main():
     parser.add_argument('--refit_step', type=int, default=1000000) # do not refit by default
     parser.add_argument('--B', type=int, default=25)
 
-    # parser.add_argument('--combo', type=str, default='lasso')
+    parser.add_argument('--combo', type=str, default='lasso')
 
     args = parser.parse_args()
     # if args.combo == 'lasso':
@@ -511,21 +511,22 @@ def main():
     #                     ['rf']]
         
     experts_lists = [
-                     ['nnet','rf','lgb','lr', 'svr'],
-                     ['nnet','rf','xgb','lr', 'svr'],
-                     ['nnet','rf','dct','lr', 'svr'],
-                     ['nnet','rf','dct','lr'],
-                     ['nnet','rf','lgb','lr'],
-                     ['nnet','rf','xgb','lr'],
-                     ['nnet','rf','lr'],
-                     ['nnet','xgb','lr'],
-                     ['nnet', 'rf'],
-                     ['nnet']
-                    # ['lgb','rf','dct','lr', 'svr'],
-                    # ['lgb','rf','dct','lr'],
-                    #  ['lgb','rf','lr'],
-                    #  ['lgb', 'rf'],
-                    #  ['lgb'], 
+                    #  ['nnet','rf','lgb','lr', 'svr'],
+                    #  ['nnet','rf','xgb','lr', 'svr'],
+                    #  ['nnet','rf','dct','lr', 'svr'],
+                    #  ['nnet','rf','dct','lr'],
+                    #  ['nnet','rf','lgb','lr'],
+                    #  ['nnet','rf','xgb','lr'],
+                    #  ['nnet','rf','lr'],
+                    #  ['nnet','xgb','lr'],
+                    #  ['nnet', 'rf'],
+                    #  ['nnet']
+                     ['lgb','xgb','rf','dct','lr', 'svr'],
+                    ['lgb','rf','dct','lr', 'svr'],
+                    ['lgb','rf','dct','lr'],
+                     ['lgb','rf','lr'],
+                     ['lgb', 'rf'],
+                     ['lgb']
                     # ['xgb','rf','dct','lr', 'svr'],
                     # ['xgb','rf','dct','lr'],
                     #  ['xgb','rf','lr'],
@@ -535,7 +536,7 @@ def main():
                     # ['cat','rf','dct','lr'],
                     #  ['cat','rf','lr'],
                     #  ['cat', 'rf'],
-                    #  ['cat']
+                    #  ['cat'],
                     #  ['lasso','rf','dct','lr','svr'],
                     #  ['lasso','rf','dct','lr'],
                     #  ['lasso','rf','dct','svr'],
@@ -544,6 +545,15 @@ def main():
                     #  ['lasso', 'rf'],
                     #  ['lasso']
                      ]  
+    if args.combo == 'lgb':
+        experts_lists = [
+                        ['lgb','xgb','rf','dct','lr'],
+                        # ['lgb','rf','dct','lr', 'svr'],
+                        ['lgb','rf','dct','lr'],
+                        ['lgb','rf','lr'],
+                        ['lgb', 'rf'],
+                        ['lgb']
+                        ]
     for experts_list in experts_lists:
         print('\n\n')
         print('\n\n')
