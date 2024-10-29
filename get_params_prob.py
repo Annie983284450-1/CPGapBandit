@@ -58,11 +58,21 @@ class get_params_prob():
         test_nosepsis = np.load('./data/test_nosepsis.npy')
         test_sepsis = test_sepsis[self.start_test: min(self.start_test+self.num_test_sepsis_pat, len(test_sepsis))]
         test_nosepsis = test_nosepsis[self.start_test:min(self.start_test+self.num_test_sepsis_pat*ratio, len(test_nosepsis))]
+
         print(f'test_sepsis: {len(test_sepsis)}')
         print(f'test_nosepsis: {len(test_nosepsis)}')
 
         test_set_psv = np.concatenate((test_sepsis, test_nosepsis), axis=0) 
         test_set = [filename.replace('.psv', '') for filename in test_set_psv]
+        np.random.seed(12345)  # Set a seed for reproducibility
+        np.random.shuffle(test_set)
+
+        test_sepsis = [filename.replace('.psv', '') for filename in test_sepsis]
+        test_nosepsis = [filename.replace('.psv', '') for filename in test_nosepsis]
+
+
+
+
         #~~~~~~~~~~~~~~Training set~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         train_sepsis = np.load('./data/train_sepsis.npy')
         train_nosepsis = np.load('./data/train_nosepsis.npy')
@@ -73,13 +83,16 @@ class get_params_prob():
     
         train_set_psv = np.concatenate((train_sepsis, train_nosepsis), axis=0)
         train_set  = [filename.replace('.psv', '') for filename in train_set_psv]
+        np.random.seed(12345)  # Set a seed for reproducibility
+        np.random.shuffle(train_set)
+
         original_train_size_pat = len(train_set) # original training set size before refitting
  
 
         sepsis_full = pd.read_csv('./data/fully_imputed.csv')
         sepsis_full.drop(['HospAdmTime'], axis=1, inplace=True)
 
-        final_result_path = '../cpbandit_results_prob/'+f'testSeptic{self.num_test_sepsis_pat}_trainSeptic{self.num_train_sepsis_pat}_B{self.B}'
+        final_result_path = '/storage/home/hcoda1/6/azhou60/scratch/cpbandit_results_shuffled/'+f'testSeptic{self.num_test_sepsis_pat}_trainSeptic{self.num_train_sepsis_pat}_B{self.B}'
         if not os.path.exists(final_result_path):
             os.makedirs(final_result_path)
         print(f'final_result_path: {final_result_path}')
@@ -97,4 +110,4 @@ class get_params_prob():
             Y_train = train_set_df_y.to_numpy(dtype='float', na_value=np.nan)
         
         print(f'X_train shape: {X_train.shape}')
-        return X_train, Y_train, test_set, final_result_path, sepsis_full, original_train_size_pat
+        return X_train, Y_train, test_set, final_result_path, sepsis_full, original_train_size_pat,test_sepsis, test_nosepsis
