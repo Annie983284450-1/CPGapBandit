@@ -17,8 +17,8 @@ from tensorflow.keras.models import Sequential, clone_model,load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.models import load_model
-from tensorflow.keras.callbacks import EarlyStopping
+
+# from tensorflow.keras.callbacks import EarlyStopping
  
 import sys
 import tensorflow as tf
@@ -78,7 +78,8 @@ class prediction_interval():
                     else:#RNN, mainly have different shape and decrease epochs for faster computation
                         model.fit(self.X_train[boot_samples_idx[b], :], self.Y_train[boot_samples_idx[b], ],
                                 epochs=10, batch_size=bsize, callbacks=[callback], verbose=0)
-                    filename = 'No_'+str(b)+'th_boot'+'.h5'
+                    # filename = 'No_'+str(b)+'th_boot'+'.h5'
+                    filename = 'No_'+str(b)+'th_boot'+'.keras'
                     saved_model_file_name = os.path.join(saved_model_path, filename)
                     model.save(saved_model_file_name) 
                     # weights_file = 'No_'+str(b)+'th_boot_weights'+'.h5'
@@ -86,7 +87,8 @@ class prediction_interval():
                     # model.save_weights(saved_weights_file_name)    
                     
             else: #Isrefit = False
-                saved_filename = 'No_'+str(b)+'th_boot'+'.h5'
+                # saved_filename = 'No_'+str(b)+'th_boot'+'.h5'
+                saved_filename = 'No_'+str(b)+'th_boot'+'.keras'
                 saved_model_file_name = os.path.join(saved_model_path, saved_filename)
                     
                 # weights_file = 'No_'+str(b)+'th_boot_weights'+'.h5'
@@ -188,7 +190,9 @@ class prediction_interval():
     
 
     def aggregation_bkeep_parallel(self, n, n1, in_boot_sample, boot_predictions):
-        pool = multiprocessing.Pool(processes=max(1, multiprocessing.cpu_count()-4))
+        pool = multiprocessing.Pool(processes= 12)
+        # pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()))
+
         results = pool.starmap(self.aggregation_bkeep, [(n, n1, i, in_boot_sample, boot_predictions) for i in range(n)])
         pool.close()
         pool.join()
@@ -214,7 +218,7 @@ class prediction_interval():
 
 
         if not os.path.exists(saved_model_path):
-            os.makedirs(saved_model_path)
+            os.makedirs(saved_model_path, exist_ok=True)
         if Isrefit:
             print(f'        !!!!!"{model_name}" will be refitted!!!!!')    
             print(f'       Generating new boot_samples_idx......')
@@ -231,7 +235,8 @@ class prediction_interval():
         if self.regressor == 'nnet_f':
             boot_predictions, in_boot_sample = self.fit_bootstrap_sequential_online_single(Isrefit, B, n, n1, boot_samples_idx, saved_model_path) # this will work without GPU parallel computing
         else: # multiprocessing mode, only for non-sequential models
-            pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()-4))
+            # pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()))
+            pool = multiprocessing.Pool(processes=12)
              
             args_list = [(b, boot_samples_idx[b], model_name, n, n1, Isrefit, saved_model_path) for b in range(B)]
             results = pool.map(self.fit_bootstrap_models_online_single, args_list)
@@ -306,7 +311,7 @@ class prediction_interval():
         saved_model_path =  './saved_models/'+ model_name 
         if not os.path.exists(saved_model_path):
  
-            os.makedirs(saved_model_path)
+            os.makedirs(saved_model_path, exist_ok=True)
         if Isrefit:
             
             print(f'        !!!!!Refitting {model_name}!!!!!')

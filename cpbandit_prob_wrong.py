@@ -91,21 +91,13 @@ class CPBandit:
         self.k = len(experts)
         self.UCB = [0]*self.k
         self.LCB = [0]*self.k
-        self.UCB1 = [0]*self.k
-        self.LCB1 = [0]*self.k
         # self.UCB_prob = [0]*self.k
         # self.LCB_prob = [0]*self.k
         self.rewards =[0]*self.k
         self.hat_mu_list_upper = np.zeros(self.k)   
         self.hat_mu_list_lower = np.zeros(self.k)   
-        self.hat_mu_list = np.zeros(self.k)  
-
-        self.hat_mu_list_upper1 = np.zeros(self.k)   
-        self.hat_mu_list_lower1 = np.zeros(self.k)   
-        self.hat_mu_list1 = np.zeros(self.k) 
-
+        self.hat_mu_list = np.zeros(self.k)   
         self.N = [0]*self.k  # N_i(t) (i=1,2,3,...k), cumulated # times arm i got pulled
-        self.N1 = [0]*self.k  # N_i(t) (i=1,2,3,...k), cumulated # times arm i got pulled
         self.t = 0 # round t, each round is correlated to one test patient
         # self.rewards = list()    #[0]*self.T
         self.mu_best =1
@@ -169,7 +161,7 @@ class CPBandit:
         
         
         params = get_params_prob(self.experts, num_test_sepsis_pat, num_train_sepsis_pat, start_test, start_nosepsis_train, start_sepsis_train,B)
-        X_train, Y_train, test_set, final_result_path, sepsis_full, train_size_pat, test_sepsis, test_nosepsis = params.get_train_test_set()
+        X_train, Y_train, test_set, final_result_path, sepsis_full, train_size_pat = params.get_train_test_set()
       
 
 
@@ -192,8 +184,6 @@ class CPBandit:
             methods  = ['Ensemble'] 
             start_time = time.time()
             num_pat_tested = 0
-            num_pat_tested0 = 0
-            num_pat_tested1 = 0
             num_fitting = 0
             
             X_size = {}
@@ -260,7 +250,7 @@ class CPBandit:
             if 'nnet' in self.experts:
                 nnet_f = 'nnet_f'
 
-            
+
             for patient_id in test_set:
                 print('\n\n')
                 print(f'=======         Processing patient {num_pat_tested}th patient: {patient_id}====================')
@@ -371,53 +361,28 @@ class CPBandit:
                                     lower_observed_utilities = 1- mean_error_lower                     
                                     self.rewards[k_idx] = observed_utilities
 
+                                    self.hat_mu_list[k_idx] = (self.rewards[k_idx] +   self.hat_mu_list[k_idx]*num_pat_tested)/(num_pat_tested+1)
+                                    # self.hat_mu_list[k_idx] =  observed_utilities 
+                                    # print(f'============== observed_utilities of {expert}: {self.hat_mu_list[k_idx]} ==============')
 
-                                    if patient_id in test_nosepsis:
-
-                                        self.hat_mu_list[k_idx] = (self.rewards[k_idx] +   self.hat_mu_list[k_idx]*num_pat_tested0)/(num_pat_tested0+1)
-                                        # self.hat_mu_list[k_idx] =  observed_utilities 
-                                        # print(f'============== observed_utilities of {expert}: {self.hat_mu_list[k_idx]} ==============')
-
-                                        self.hat_mu_list_upper[k_idx] = (upper_observed_utilities + self.hat_mu_list_upper[k_idx]*num_pat_tested0)/(num_pat_tested0+1)
-                                        self.hat_mu_list_lower[k_idx] = (lower_observed_utilities + self.hat_mu_list_lower[k_idx]*num_pat_tested0)/(num_pat_tested0+1)
+                                    self.hat_mu_list_upper[k_idx] = (upper_observed_utilities +   self.hat_mu_list_upper[k_idx]*num_pat_tested)/(num_pat_tested+1)
+                                    self.hat_mu_list_lower[k_idx] = (lower_observed_utilities +   self.hat_mu_list_lower[k_idx]*num_pat_tested)/(num_pat_tested+1)
+                                
                                     
-
-                                        if self.N[k_idx] == 0:
-                                            self.UCB[k_idx] = sys.float_info.max  #  encourage exploration
-                                            self.LCB[k_idx] = -sys.float_info.max  # Also encourage exploration
-                                        else:
-                                            self.UCB[k_idx]= self.hat_mu_list_upper[k_idx]+self.upperBound2(N_it = self.N[k_idx], alpha = bandit_alpha)
-                                            self.LCB[k_idx]= self.hat_mu_list_lower[k_idx]+self.upperBound2(N_it = self.N[k_idx], alpha = bandit_alpha)
-                                    if patient_id in test_sepsis:
-                                        self.hat_mu_list1[k_idx] = (self.rewards[k_idx] + self.hat_mu_list1[k_idx]*num_pat_tested1)/(num_pat_tested1+1)
-                                        # self.hat_mu_list[k_idx] =  observed_utilities 
-                                        # print(f'============== observed_utilities of {expert}: {self.hat_mu_list[k_idx]} ==============')
-
-                                        self.hat_mu_list_upper1[k_idx] = (upper_observed_utilities +   self.hat_mu_list_upper1[k_idx]*num_pat_tested1)/(num_pat_tested1+1)
-                                        self.hat_mu_list_lower1[k_idx] = (lower_observed_utilities +   self.hat_mu_list_lower1[k_idx]*num_pat_tested1)/(num_pat_tested1+1)
-                                    
-
-                                        if self.N1[k_idx] == 0:
-                                            self.UCB1[k_idx] = sys.float_info.max  #  encourage exploration
-                                            self.LCB1[k_idx] = -sys.float_info.max  # Also encourage exploration
-                                        else:
-                                            self.UCB1[k_idx]= self.hat_mu_list_upper1[k_idx]+self.upperBound2(N_it = self.N1[k_idx], alpha = bandit_alpha)
-                                            self.LCB1[k_idx]= self.hat_mu_list_lower1[k_idx]+self.upperBound2(N_it = self.N1[k_idx], alpha = bandit_alpha)
-    
- 
-                                  
+                                    if self.N[k_idx] == 0:
+                                        self.UCB[k_idx] = sys.float_info.max  #  encourage exploration
+                                        self.LCB[k_idx] = -sys.float_info.max  # Also encourage exploration
+                                    else:
+                                        self.UCB[k_idx]= self.hat_mu_list_upper[k_idx]+self.upperBound2(N_it = self.N[k_idx], alpha = bandit_alpha)
+                                        self.LCB[k_idx]= self.hat_mu_list_lower[k_idx]+self.upperBound2(N_it = self.N[k_idx], alpha = bandit_alpha)
+                                    self.t += 1
 
                             print(f'        @@@@~~~@@@@~~~@@@@~~~Selecting the best expert on average @@@@~~~')
+                            pulled_arm_idx_curr_pat = gap_bandit(self.UCB, self.LCB, self.k).pull_arm()
+                            # reward_curr_pat =  self.rewards[pulled_arm_idx_curr_pat]
+                            # self.rewards.append(reward_curr_pat)
+                            self.N[pulled_arm_idx_curr_pat] += 1
 
-                            if patient_id in test_nosepsis:
-                                pulled_arm_idx_curr_pat = gap_bandit(self.UCB, self.LCB, self.k).pull_arm()
-                                self.N[pulled_arm_idx_curr_pat] += 1
-                            if patient_id in test_sepsis:
-                                pulled_arm_idx_curr_pat = gap_bandit(self.UCB1, self.LCB1, self.k).pull_arm()
-                                self.N1[pulled_arm_idx_curr_pat] += 1
-                
-                            
-   
                             new_row_all_avg = {'patient_id': patient_id, 'alpha': alpha, 'itrial': itrial, 'method': method}
 
                             for expert in self.experts:
@@ -426,15 +391,7 @@ class CPBandit:
                             new_row_all_avg['winner'] = list(expert_dict.keys())[pulled_arm_idx_curr_pat]
                             new_row_all_avg['regret'] = 1 - self.rewards[pulled_arm_idx_curr_pat]
                             new_row_all_avg['observed_utility'] =self.rewards[pulled_arm_idx_curr_pat]
-                            
-
-                            if patient_id in test_nosepsis:
-                                new_row_all_avg['class'] = 0
-                                new_row_all_avg['hat_mu_optimal'] = self.hat_mu_list[pulled_arm_idx_curr_pat]
-                            if patient_id in test_sepsis:
-                                new_row_all_avg['class'] = 1
-                                new_row_all_avg['hat_mu_optimal'] = self.hat_mu_list1[pulled_arm_idx_curr_pat]
-
+                            new_row_all_avg['hat_mu_optimal'] = self.hat_mu_list[pulled_arm_idx_curr_pat]
 
                             if not isinstance(new_row_all_avg, pd.DataFrame):
                                 new_row_all_avg = pd.DataFrame([new_row_all_avg])
@@ -476,19 +433,7 @@ class CPBandit:
                 print('========================================================')
                 num_pat_tested = num_pat_tested + 1
                 self.t += 1
-                if patient_id in test_nosepsis:
-                    num_pat_tested0+=1
-                if patient_id in test_sepsis:
-                    num_pat_tested1+=1
-
-                if num_pat_tested1+num_pat_tested0!=num_pat_tested:
-                    sys.exit('!!!!!!!!! Error: num_pat_tested1+num_pat_tested0!=num_pat_tested')
-                else:
-                    print(f'# {num_pat_tested} patients already tested! ......')
-                    print(f'# {num_pat_tested0} nonseptic patients already tested! ......')
-                    print(f'# {num_pat_tested1} septic patients already tested! ......')
-                if self.t != num_pat_tested:
-                    sys.exit('!!!!!!!!! Error: self.t != num_pat_tested ')
+                print(f'# {num_pat_tested} patients already tested! ......')
 
             print('========================================================')
             print('========================================================')
@@ -496,7 +441,7 @@ class CPBandit:
         
         
             print(f'Total excution time: {(time.time() - start_time)} seconds~~~~~~' )
-            machine = 'login-phoenix-rh9.pace.gatech.edu'
+            machine = 'ece-kl2313-01.ece.gatech.edu'
             with open(final_result_path+'/'+'_'.join(self.experts)+'/execution_info.txt', 'w') as file:
                 file.write(f'Total excution time: {(time.time() - start_time)} seconds\n')
                 file.write(f'num_test_sepsis_pat = {num_test_sepsis_pat}\n')
