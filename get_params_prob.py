@@ -53,7 +53,8 @@ class get_params_prob():
         # development dateset (34,285 patients, 2,492 septic & 31,793 non-septic)
         # validation dataset (6,051 patients, 440 septic & 5,611 non-septic)
         #~~~~~~~~~~~~~~Testing set~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        ratio = math.floor(22926/1606)
+        # ratio = math.floor(22926/1606)
+        ratio = 1
         test_sepsis = np.load('./data/test_sepsis.npy')
         test_nosepsis = np.load('./data/test_nosepsis.npy')
         test_sepsis = test_sepsis[self.start_test: min(self.start_test+self.num_test_sepsis_pat, len(test_sepsis))]
@@ -92,7 +93,8 @@ class get_params_prob():
         sepsis_full = pd.read_csv('./data/fully_imputed.csv')
         sepsis_full.drop(['HospAdmTime'], axis=1, inplace=True)
 
-        final_result_path = '/storage/home/hcoda1/6/azhou60/scratch/cpbandit_results_shuffled/'+f'testSeptic{self.num_test_sepsis_pat}_trainSeptic{self.num_train_sepsis_pat}_B{self.B}'
+        final_result_path = '/storage/home/hcoda1/6/azhou60/scratch/cpbandit_results_shuffled/'+\
+            f'testSeptic{self.num_test_sepsis_pat}_trainSeptic{self.num_train_sepsis_pat}_B{self.B}_ratio{ratio}'
         if not os.path.exists(final_result_path):
             os.makedirs(final_result_path)
         print(f'final_result_path: {final_result_path}')
@@ -110,4 +112,4 @@ class get_params_prob():
             Y_train = train_set_df_y.to_numpy(dtype='float', na_value=np.nan)
         
         print(f'X_train shape: {X_train.shape}')
-        return X_train, Y_train, test_set, final_result_path, sepsis_full, original_train_size_pat,test_sepsis, test_nosepsis
+        return X_train, Y_train, test_set, final_result_path, sepsis_full, original_train_size_pat,test_sepsis, test_nosepsis 

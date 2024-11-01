@@ -36,7 +36,7 @@ class prediction_interval():
     '''
  
 
-    def __init__(self, fit_func, X_train, X_predict, Y_train, Y_predict, final_result_path, experts_list, train_size, refit_step ):
+    def __init__(self, fit_func, X_train, X_predict, Y_train, Y_predict, final_result_path, experts_list, train_size, refit_step,numprocessors):
         
         self.regressor = fit_func
         self.X_train = X_train
@@ -57,6 +57,7 @@ class prediction_interval():
         self.experts_list = experts_list
         self.train_size = train_size
         self.refit_step = refit_step
+        self.numprocessors = numprocessors
       
  
 # without GPU parallel computing and without CPU parallel computing
@@ -190,7 +191,7 @@ class prediction_interval():
     
 
     def aggregation_bkeep_parallel(self, n, n1, in_boot_sample, boot_predictions):
-        pool = multiprocessing.Pool(processes= 12)
+        pool = multiprocessing.Pool(processes= self.numprocessors)
         # pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()))
 
         results = pool.starmap(self.aggregation_bkeep, [(n, n1, i, in_boot_sample, boot_predictions) for i in range(n)])
@@ -236,7 +237,7 @@ class prediction_interval():
             boot_predictions, in_boot_sample = self.fit_bootstrap_sequential_online_single(Isrefit, B, n, n1, boot_samples_idx, saved_model_path) # this will work without GPU parallel computing
         else: # multiprocessing mode, only for non-sequential models
             # pool = multiprocessing.Pool(processes = max(1, multiprocessing.cpu_count()))
-            pool = multiprocessing.Pool(processes=12)
+            pool = multiprocessing.Pool(processes=self.numprocessors)
              
             args_list = [(b, boot_samples_idx[b], model_name, n, n1, Isrefit, saved_model_path) for b in range(B)]
             results = pool.map(self.fit_bootstrap_models_online_single, args_list)

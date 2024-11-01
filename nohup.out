@@ -5,3 +5,17 @@ X_train shape: (27224, 13)
 X_train shape: (27224, 13)
 X_train shape: (27224, 13)
 X_train shape: (27224, 13)
+2024-10-29 17:38:51.010499: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2024-10-29 17:38:55.884277: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:477] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1730237936.752516 1327832 cuda_dnn.cc:8310] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1730237937.012298 1327832 cuda_blas.cc:1418] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2024-10-29 17:38:58.166535: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+usage: cpbandit_prob.py [-h] [--num_test_sepsis_pat NUM_TEST_SEPSIS_PAT]
+                        [--num_train_sepsis_pat NUM_TRAIN_SEPSIS_PAT]
+                        [--refit_step REFIT_STEP] [--B B] [--np NP]
+                        [--combo COMBO]
+cpbandit_prob.py: error: unrecognized arguments: -- np
+No display found. Using non-interactive Agg backend
+Switched to: Agg

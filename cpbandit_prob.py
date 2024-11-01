@@ -86,7 +86,7 @@ from sklearn.linear_model import LogisticRegressionCV
 multiprocessing.get_context().Process().Pickle = dill
 # =============Read data and initialize parameters
 class CPBandit:
-    def __init__(self, experts, num_test_sepsis_pat_args, num_train_sepsis_pat_args, refit_step_args, B_args):
+    def __init__(self, experts, num_test_sepsis_pat_args, num_train_sepsis_pat_args, refit_step_args, B_args,numprocessors_args):
         self.experts = experts
         self.k = len(experts)
         self.UCB = [0]*self.k
@@ -113,6 +113,7 @@ class CPBandit:
         self.num_train_sepsis_pat = num_train_sepsis_pat_args
         self.refit_step = refit_step_args
         self.B = B_args
+        self.numprocessors = numprocessors_args
 
     def upperBound2(self, N_it, alpha):
         return  math.sqrt(alpha * math.log(self.t+1) / N_it)
@@ -312,7 +313,7 @@ class CPBandit:
                         # print(f' ========= &&&&&& Starting fitting the model and make predictions for {expert}.... ========= &&&&&&')
                         cp_EnbPI = EnbPI.prediction_interval(locals()[f'{expert}_f'], X_train, X_predict, Y_train, Y_predict, \
                                                              final_result_path, \
-                                                             self.experts, train_folder_name, refit_step)
+                                                             self.experts, train_folder_name, refit_step, self.numprocessors)
                         cp_EnbPI.fit_bootstrap_models_online_multi(B, miss_test_idx, Isrefit, model_name = expert)
                         # print(f' ========= &&&&&& Finish fitting model and predictions got for {expert}.... ========= &&&&&&')
                         print('\n\n')
@@ -340,6 +341,8 @@ class CPBandit:
                             # if not os.path.exists(cp_dat_path):
                             #     os.makedirs(cp_dat_path)
                             coverage_dict = {}
+                            avg_width_dict = {}
+
                             if method == 'Ensemble':
                                 for expert in self.experts:
                                     print(f'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~run_experiments() for [{expert}] executing~~~~~~~~~~~~~~~~~~~~')
@@ -348,6 +351,7 @@ class CPBandit:
                                                         true_Y_predict=[], get_plots=False, none_CP=False, methods=methods,max_hours=max_hours)
                                     print(results)
                                     coverage_dict[expert] = results.mean_coverage.values[0]
+                                    avg_width_dict[expert] = results.avg_width.values[0]
 
                                     # Y_upper = PIs_df['upper']
                                     # Y_lower = PIs_df['lower']
@@ -422,6 +426,7 @@ class CPBandit:
 
                             for expert in self.experts:
                                 new_row_all_avg[f'{expert}_coverage'] = coverage_dict[expert]
+                                new_row_all_avg[f'{expert}_avg_width'] = avg_width_dict[expert]
                                 # k_idx = expert_dict[f'{expert}']
                             new_row_all_avg['winner'] = list(expert_dict.keys())[pulled_arm_idx_curr_pat]
                             new_row_all_avg['regret'] = 1 - self.rewards[pulled_arm_idx_curr_pat]
@@ -500,6 +505,7 @@ class CPBandit:
             with open(final_result_path+'/'+'_'.join(self.experts)+'/execution_info.txt', 'w') as file:
                 file.write(f'Total excution time: {(time.time() - start_time)} seconds\n')
                 file.write(f'num_test_sepsis_pat = {num_test_sepsis_pat}\n')
+                file.write(f'num_test_nosepsis_pat = {len(test_nosepsis)}\n')
                 file.write(f'num_train_sepsis_pat = {num_train_sepsis_pat}\n')
                 file.write(f'num_train_nosepsis_pat = {num_train_nosepsis_pat}\n')
                 file.write(f'tot_trial = {tot_trial}\n')
@@ -525,6 +531,7 @@ def main():
     parser.add_argument('--num_train_sepsis_pat', type=int, default=5)
     parser.add_argument('--refit_step', type=int, default=1000000) # do not refit by default
     parser.add_argument('--B', type=int, default=25)
+    parser.add_argument('--np', type=int, default=12)
 
     parser.add_argument('--combo', type=str, default=None)
 
@@ -548,7 +555,7 @@ def main():
         ]
     if args.combo == 'rf':
         experts_lists = [
-                    ['rf','xgb', 'ridge','dct','lr'],
+                    # ['rf','xgb', 'ridge','dct','lr'], # already run  
                     ['rf','xgb', 'ridge','lr'],
                     ['rf','xgb', 'lr'],
                     ['rf','xgb'],
@@ -559,7 +566,7 @@ def main():
 
     if args.combo == 'xgb':
         experts_lists = [
-                        ['xgb','cat','rf','dct','lr'],       
+                        ['xgb','cat','rf','dct','lr'],     # already run  
                         ['xgb','rf','dct','lr'],
                         ['xgb','rf','lr'],
                         ['xgb', 'rf'],
@@ -569,13 +576,20 @@ def main():
         
     if args.combo == 'dct':
         experts_lists = [
-                        ['dct','cat','rf','ridge','lr'],       
+                        # ['dct','cat','rf','ridge','lr'],      # already run   
                         ['dct','rf','ridge','cat'],
                         ['dct','rf','cat'],
                         ['dct', 'cat'],
                         ['dct']
                         ]
-        
+    if args.combo == 'ridge':
+        experts_lists = [
+                        ['ridge','cat','rf','dct','lr'],     # already run  
+                        ['ridge','rf','dct','lr'],
+                        ['ridge','rf','xgb'],
+                        ['ridge', 'xgb'],
+                        ['ridge']
+                        ]
 
     if args.combo == None:
         sys.exit('Input combo!!!')
@@ -592,7 +606,7 @@ def main():
         print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
         print('\n\n')
         cpbanit_player = CPBandit(experts=experts_list, num_test_sepsis_pat_args=args.num_test_sepsis_pat, \
-                                  num_train_sepsis_pat_args=args.num_train_sepsis_pat, refit_step_args=args.refit_step, B_args = args.B)
+                                  num_train_sepsis_pat_args=args.num_train_sepsis_pat, refit_step_args=args.refit_step, B_args = args.B, numprocessors_args = args.np)
         cpbanit_player._start_game()
 if __name__=='__main__':
     main()
