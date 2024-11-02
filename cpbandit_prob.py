@@ -596,6 +596,11 @@ def main():
 
 
     for experts_list in experts_lists:
+        exeinfo_file = '/storage/home/hcoda1/6/azhou60/scratch/cpbandit_results_shuffled/testSeptic250_trainSeptic1000_B25_ratio1/'+\
+        experts_list.split('_')+ '/execution_info.txt'
+        if os.path.exists(exeinfo_file):
+            continue
+
         print('\n\n')
         print('\n\n')
         print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
