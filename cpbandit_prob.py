@@ -597,22 +597,25 @@ def main():
 
     for experts_list in experts_lists:
         exeinfo_file = '/storage/home/hcoda1/6/azhou60/scratch/cpbandit_results_shuffled/testSeptic250_trainSeptic1000_B25_ratio1/'+\
-        experts_list.split('_')+ '/execution_info.txt'
+        '_'.join(experts_list)+ '/execution_info.txt'
+        
         if os.path.exists(exeinfo_file):
+            print(f'[{experts_list}] already existed!! ')
             continue
 
-        print('\n\n')
-        print('\n\n')
-        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-        print(f'@#$%$&^%*&^ @@@@@@@@@@@ experts_list: @#$%$&^%*&^ @@@@@@@@@@@ ')
-        print(experts_list)
-        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-        print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-        print('\n\n')
-        cpbanit_player = CPBandit(experts=experts_list, num_test_sepsis_pat_args=args.num_test_sepsis_pat, \
-                                  num_train_sepsis_pat_args=args.num_train_sepsis_pat, refit_step_args=args.refit_step, B_args = args.B, numprocessors_args = args.np)
-        cpbanit_player._start_game()
+        else:
+            print('\n\n')
+            print('\n\n')
+            print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print(f'@#$%$&^%*&^ @@@@@@@@@@@ experts_list: @#$%$&^%*&^ @@@@@@@@@@@ ')
+            print(experts_list)
+            print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+            print('\n\n')
+            cpbanit_player = CPBandit(experts=experts_list, num_test_sepsis_pat_args=args.num_test_sepsis_pat, \
+                                    num_train_sepsis_pat_args=args.num_train_sepsis_pat, refit_step_args=args.refit_step, B_args = args.B, numprocessors_args = args.np)
+            cpbanit_player._start_game()
 if __name__=='__main__':
     main()
  
